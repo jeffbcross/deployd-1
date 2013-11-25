@@ -1,5 +1,6 @@
 var Router = require('../lib/router')
-  , Resource = require('../lib/resource');
+  , Resource = require('../lib/resource')
+  , sinon = require('sinon');
 
 function fauxReq(url) {
   var fn = function (){};
@@ -20,7 +21,8 @@ function fauxRes() {
     on: fn,
     emit: fn,
     setHeader: fn,
-    end: fn
+    end: fn,
+    write: fn
   };
 }
 
@@ -42,7 +44,7 @@ describe('Router', function() {
       resource.handle = function() {
         done();
       };
-      
+
       router.route({url: '/foo/1234'}, {});
     });
 
@@ -60,7 +62,7 @@ describe('Router', function() {
       other.handle = function() {
         throw Error("This one shouldn't get called");
       };
-      
+
       router.route({url: '/foo'}, {});
     });
 
@@ -89,15 +91,15 @@ describe('Router', function() {
         , router = new Router([foo], fauxServer());
 
       this.timeout(100);
-      
+
       var req = fauxReq('/dont-match')
         , res = fauxRes();
-        
+
       res.end = function () {
         if(res.statusCode != 404) throw new Error('incorrect status for resource not found');
         done();
       };
-      
+
       foo.handle = function() {
         throw "/foo was handled";
       };
@@ -111,7 +113,7 @@ describe('Router', function() {
         , router = new Router([foo, foobar], fauxServer());
 
       this.timeout(100);
-      
+
       foobar.handle = function(ctx, next) {
         next();
       };
@@ -119,10 +121,10 @@ describe('Router', function() {
       foo.handle = function(ctx, next) {
         next();
       };
-      
+
       var req = fauxReq('/dont-match')
         , res = fauxRes();
-        
+
       res.end = function () {
         if(res.statusCode != 404) throw new Error('incorrect status for resource not found');
         done();
@@ -141,10 +143,10 @@ describe('Router', function() {
         expect(ctx.url).to.equal('/1234');
         done();
       };
-      
+
       var req = fauxReq('/foo/1234')
         , res = fauxRes();
-        
+
       router.route(req, res);
     });
 
@@ -160,6 +162,20 @@ describe('Router', function() {
       };
 
       router.route({url: '/index.html'}, {});
+    });
+
+
+    it('should call next if provided', function (done) {
+      var next = sinon.spy();
+
+      var foo = new Resource('foo');
+      var router = new Router([foo], {emit: console.log});
+
+      router.route(fauxReq('/foo/1'), fauxRes(), next);
+      process.nextTick(function () {
+        expect(next.callCount).to.equal(1);
+        done();
+      });
     });
   });
 
@@ -191,7 +207,7 @@ describe('Router', function() {
       var result = this.router.matchResources('/foo/12345');
       expect(paths(result)).to.include('/').and.to.include('/foo');
       expect(result.length).to.equal(2);
-    }); 
+    });
 
     it ('should not match /food to /foo', function() {
       var result = this.router.matchResources('/food');
@@ -202,7 +218,7 @@ describe('Router', function() {
       var result = this.router.matchResources('/foo?test=1');
       expect(paths(result)).to.include('/').and.to.include('/foo');
       expect(result.length).to.equal(2);
-    }); 
+    });
 
     it ('should match /foo/bar/12345 to /, /foo, and /foo/bar', function() {
       var result = this.router.matchResources('/foo/bar/12345');

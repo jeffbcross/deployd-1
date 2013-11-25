@@ -15,7 +15,7 @@ Server.__set__('http', {
 });
 
 describe('Server', function() {
-  describe('.listen()', function() {
+	describe('.listen()', function() {
     beforeEach(function() {
       sh.cd('./test/support/proj');
       sh.rm('-rf', 'resources');
@@ -45,62 +45,82 @@ describe('Server', function() {
     });
   });
 
-  describe('.createStore(namespace)', function() {
-    it('should create a store with the given name', function() {
-      var server = new Server()
-        ,	store = server.createStore('foo');
+	describe('.createStore(namespace)', function() {
+		it('should create a store with the given name', function() {
+			var server = new Server()
+				,	store = server.createStore('foo');
 
-      expect(store instanceof Store).to.equal(true);
-      expect(server.stores.foo).to.equal(store);
-    });
-  });
-
-
-  describe('.route()', function () {
-    it('should be on the prototype', function () {
-      var server = new Server();
-      expect(typeof server.route).to.equal('function');
-      expect(server.route.toString()).to.contain('req, res');
-    });
+			expect(store instanceof Store).to.equal(true);
+			expect(server.stores.foo).to.equal(store);
+		});
+	});
 
 
-    it('should call config.loadConfig', function () {
-      var server = new Server();
-      var req = {url: 'foo'};
-      var res = {body: 'bar'};
-      var config = require('../lib/config-loader');
-      config.loadConfig = sinon.spy();
-
-      server.route(req, res);
-
-      expect(config.loadConfig.callCount).to.equal(1);
-    });
+	describe('.route()', function () {
+		it('should be on the prototype', function () {
+			var server = new Server();
+			expect(typeof server.route).to.equal('function');
+			expect(server.route.toString()).to.contain('req, res');
+		});
 
 
-    it('should set a resources array on the server', function () {
-      var server = new Server();
-      var req = {url: 'foo', headers: {accept: '*'}};
-      var res = {body: 'bar', on: function () {}};
+		it('should call config.loadConfig', function () {
+			var server = new Server();
+			var req = {url: 'foo'};
+			var res = {body: 'bar'};
+			var config = require('../lib/config-loader');
+			config.loadConfig = sinon.spy();
 
-      var configLoader = require('../lib/config-loader');
-      configLoader.loadConfig = function (path, server, callback) {
-        callback.call(server, null, ['foo']);
-      };
+			server.route(req, res);
 
-      expect(Array.isArray(server.resources)).to.equal(false);
-
-      server.route(req, res);
-
-      expect(Array.isArray(server.resources)).to.equal(true);
-    });
-  });
+			expect(config.loadConfig.callCount).to.equal(1);
+		});
 
 
-  describe('.handleRequest()', function () {
-    it('should be on the prototype', function () {
-      var server = new Server();
-      expect(typeof server.handleRequest).to.equal('function');
-      expect(server.handleRequest.toString()).to.contain('req, res');
-    });
-  });
+		it('should set a resources array on the server', function () {
+			var server = new Server();
+			var req = {url: 'foo', headers: {accept: '*'}};
+			var res = {body: 'bar', on: function () {}};
+
+			var configLoader = require('../lib/config-loader');
+			configLoader.loadConfig = function (path, server, callback) {
+				callback.call(server, null, ['foo']);
+			};
+
+			expect(Array.isArray(server.resources)).to.equal(false);
+
+			server.route(req, res);
+
+			expect(Array.isArray(server.resources)).to.equal(true);
+		});
+	});
+
+
+	describe('.handleRequest()', function () {
+		var req, res, next;
+
+		beforeEach(function () {
+			req = {url: 'foo', connection: {encrypted: false}, headers: {accept: '*'}};
+			res = {body: 'bar', on: function () {}, setHeader: function () {}, getHeader: function () {}};
+			next = sinon.spy();
+		});
+
+
+		it('should be on the prototype', function () {
+			var server = new Server();
+			expect(typeof server.handleRequest).to.equal('function');
+			expect(server.handleRequest.toString()).to.contain('req, res');
+		});
+
+
+		it.only('should call next after handling the route', function (done) {
+			var server = new Server();
+			server.handleRequest(req, res, next);
+
+			process.nextTick(function () {
+				expect(next.callCount).to.equal(1);
+				done();
+			});
+		});
+	});
 });

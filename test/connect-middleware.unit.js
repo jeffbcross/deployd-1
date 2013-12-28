@@ -1,16 +1,31 @@
-var Server = require('../lib/server')
-    sinon = require('sinon');
+var Server
+  , sinon = require('sinon')
+  , rewire = require('rewire');
 
 describe.only('Connect Middleware', function () {
   var req, res, next;
 
   beforeEach(function () {
+    Server = rewire('../lib/server');
     req = {url: 'foo', connection: {encrypted: false}, headers: {accept: '*'}};
     res = {body: 'bar', on: function () {}, setHeader: function () {}, getHeader: function () {}};
     next = sinon.spy();
   });
 
   it('should call next after handling the route', function (done) {
+    Server.__set__('config', {
+      loadConfig: function (basePath, server, fn) {
+        return fn(null, [{
+          path: 'foo',
+          handleSession: function (ctx, fn) {
+            fn();
+          },
+          handle: function (ctx, req, res, next) {
+            next();
+          }
+        }]);
+      }
+    })
     var server = new Server();
     server.isTest = true;
     server.handleRequest(req, res, next);

@@ -2,7 +2,7 @@ var Server
   , sinon = require('sinon')
   , rewire = require('rewire');
 
-describe.only('Connect Middleware', function () {
+describe('Connect Middleware', function () {
   var req, res, next;
 
   beforeEach(function () {

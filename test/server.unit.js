@@ -1,20 +1,106 @@
 var rewire = require('rewire')
-  ,	Server = rewire('../lib/server')
+  ,	Server
   ,	Db = require('../lib/db').Db
-  ,	Store = require('../lib/db').Store
+  ,	Store = require('./support/mock/db').Store
   ,	Router = require('../lib/router')
   ,	sh = require('shelljs')
-  ,	sinon = require('sinon');
-
-function MockServer () {}
-MockServer.prototype.listen = function () {}
-
-Server.__set__('process', {});
-Server.__set__('http', {
-  Server: MockServer
-});
+  ,	sinon = require('sinon')
+  , MockServer = require('./support/mock/http.Server')
+  , mockDB = require('./support/mock/db')
+  , mockSocketIO = require('./support/mock/socket.io')
+  , MockSessionStore = require('./support/mock/session').SessionStore;
 
 describe('Server', function() {
+  beforeEach(function () {
+    Server = rewire('../lib/server');
+
+    Server.__set__('process', {});
+    Server.__set__('http', {
+      Server: MockServer
+    });
+    Server.__set__('db', mockDB);
+    Server.__set__('io', mockSocketIO);
+    Server.__set__('SessionStore', MockSessionStore);
+  });
+
+
+  describe('constructor', function () {
+    it('should configure server with options if provided', function () {
+      var options = {
+        port: 80,
+        db: {
+          port: 90,
+          host: '0.0.0.0',
+          name: 'fakedb'
+        }
+      };
+      var server = new Server(options);
+
+      expect(server.options.port).to.equal(80);
+      expect(server.options.db).to.equal(options.db);
+    });
+
+    it('should configure server with defaults if no options provided', function () {
+      var server = new Server();
+      expect(server.options.port).to.equal(2403);
+      expect(server.options.db.name).to.equal('deployd');
+    });
+
+    it('should create a stores map', function () {
+      var server = new Server();
+
+      expect(server.stores).to.be.an('object');
+    });
+
+    it('should instantiate a db on the server object', function () {
+      var server = new Server({
+        db: {
+          port: 1234,
+          name: 'mock',
+          host: '0.0.0.0'
+        }
+      });
+
+      expect(server.db.port).to.eql(1234);
+      expect(server.db.name).to.eql('mock');
+      expect(server.db.host).to.eql('0.0.0.0');
+    });
+
+
+    it('should instantiate socket.io and add sockets to server object', function () {
+      var server = new Server();
+
+      expect(typeof server.sockets).to.eql('object');
+    });
+
+    it('should set sessions on the server object', function () {
+      var server = new Server();
+      expect(server.sessions).to.be.an('object');
+    });
+
+    it('should set keys on the server object', function () {
+      var server = new Server();
+      expect(server.keys).to.be.an('object');
+    });
+
+    it('should listen to request:error on server and kill process', function () {
+      var spy = sinon.spy();
+      Server.__set__('process', {
+        exit: spy
+      });
+      Server.__set__('console', {
+        error: function () {},
+        log: function () {}
+      });
+
+      var server = new Server();
+      server.emit('request:error', new Error(), {}, {});
+
+      expect(spy.callCount).to.eql(1);
+      });
+  });
+
+
   describe('.listen()', function() {
     beforeEach(function() {
       sh.cd('./test/support/proj');
@@ -32,12 +118,16 @@ describe('Server', function() {
             host: '127.0.0.1'
           }
       };
+      var spy = sinon.spy();
+      Server.__set__('config', {
+        loadConfig: spy
+      });
       var server = new Server(opts);
+
 
       server.listen();
 
-      expect(server.db instanceof  Db).to.equal(true);
-      expect(server.options).to.eql(opts);
+      expect(spy.callCount).to.eql(1);
     });
 
     afterEach(function() {
@@ -98,30 +188,10 @@ describe('Server', function() {
 
 
   describe('.handleRequest()', function () {
-    var req, res, next;
-
-    beforeEach(function () {
-      req = {url: 'foo', connection: {encrypted: false}, headers: {accept: '*'}};
-      res = {body: 'bar', on: function () {}, setHeader: function () {}, getHeader: function () {}};
-      next = sinon.spy();
-    });
-
-
     it('should be on the prototype', function () {
       var server = new Server();
       expect(typeof server.handleRequest).to.equal('function');
       expect(server.handleRequest.toString()).to.contain('req, res');
-    });
-
-
-    it.only('should call next after handling the route', function (done) {
-      var server = new Server();
-      server.handleRequest(req, res, next);
-
-      process.nextTick(function () {
-        expect(next.callCount).to.equal(1);
-        done();
-      });
     });
   });
 });

@@ -76,7 +76,7 @@ describe('Router', function() {
 
       foobar.handle = function(ctx, next) {
         foobarCalled = true;
-        next();
+        typeof next === 'function' && next();
       };
       foo.handle = function() {
         expect(foobarCalled).to.be['true'];

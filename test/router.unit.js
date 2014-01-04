@@ -1,39 +1,11 @@
 var Router = require('../lib/router')
   , Resource = require('../lib/resource')
-  , sinon = require('sinon');
-
-function fauxReq(url) {
-  var fn = function (){};
-  return {
-    url: url,
-    headers: {},
-    resume: fn,
-    on: fn,
-    emit: fn
-  };
-}
-
-function fauxRes() {
-  var fn = function (){};
-  return {
-    headers: {},
-    resume: fn,
-    on: fn,
-    emit: fn,
-    setHeader: fn,
-    end: fn,
-    write: fn
-  };
-}
-
-function fauxServer() {
-  return {
-    emit: function () {}
-  };
-}
+  , sinon = require('sinon')
+  , fauxReq = require('./support/mock/http.Request')
+  , fauxRes = require('./support/mock/http.Response')
+  , fauxServer = require('./support/mock/http.Server');
 
 describe('Router', function() {
-
   describe('.route()', function() {
     it('should route to a matching resource', function(done) {
       var resource = new Resource('foo',{})
@@ -51,7 +23,7 @@ describe('Router', function() {
     it('should route to an exactly matching resource', function(done) {
       var resource = new Resource('foo')
         , other = new Resource('')
-        , router = new Router([resource, other], fauxServer());
+        , router = new Router([resource, other], fauxServer);
 
       this.timeout(100);
 
@@ -66,17 +38,19 @@ describe('Router', function() {
       router.route({url: '/foo'}, {});
     });
 
-    it ('should route to resources in turn', function(done) {
+    it('should route to resources in turn', function(done) {
       var foobar = new Resource('foo/bar')
         , foo = new Resource('foo')
-        , router = new Router([foo, foobar], fauxServer())
+        , router = new Router([foo, foobar], fauxServer)
         , foobarCalled = false;
 
       this.timeout(100);
 
-      foobar.handle = function(ctx, next) {
+      foobar.handle = function(ctx, req, res, next) {
         foobarCalled = true;
-        typeof next === 'function' && next();
+        if (typeof next === 'function') {
+          next();
+        }
       };
       foo.handle = function() {
         expect(foobarCalled).to.be['true'];
@@ -88,7 +62,7 @@ describe('Router', function() {
 
     it ('should return 404 if no resources match', function(done) {
       var foo = new Resource('foo')
-        , router = new Router([foo], fauxServer());
+        , router = new Router([foo], fauxServer);
 
       this.timeout(100);
 
@@ -110,7 +84,7 @@ describe('Router', function() {
     it ('should return 404 if all resources call next', function(done) {
       var foobar = new Resource('foo/bar')
         , foo = new Resource('foo')
-        , router = new Router([foo, foobar], fauxServer());
+        , router = new Router([foo, foobar], fauxServer);
 
       this.timeout(100);
 
@@ -135,7 +109,7 @@ describe('Router', function() {
 
     it('should modify ctx.url to remove the base path', function(done) {
       var foo = new Resource('foo')
-        , router = new Router([foo], fauxServer());
+        , router = new Router([foo], fauxServer);
 
       this.timeout(1000);
 

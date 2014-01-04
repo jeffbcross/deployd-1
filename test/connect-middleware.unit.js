@@ -45,4 +45,8 @@ describe('Connect Middleware', function () {
   it('should work with the users collection', function () {
 
   });
+
+  it('should have all events applied before next is called', function () {
+
+  });
 });
